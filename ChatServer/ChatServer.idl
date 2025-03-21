@@ -1,0 +1,29 @@
+// ChatServer.idl : type library source for ChatServer.exe
+
+// This file will be processed by the MIDL compiler to produce the
+// type library (ChatServer.tlb).
+
+[ uuid(07adbf3c-4192-48e6-9009-400a6a4a9f6c), version(1.0) ]
+library ChatServer
+{
+	importlib("stdole32.tlb");
+	importlib("stdole2.tlb");
+
+	//  Primary dispatch interface for CChatServerDoc
+
+	[ uuid(f17a1a5a-4189-4302-a6dd-644089d2b34a) ]
+	dispinterface IChatServer
+	{
+		properties:
+
+		methods:
+	};
+
+	//  Class information for CChatServerDoc
+
+	[ uuid(5aa4068a-398f-4d49-be44-10673e7c0b72) ]
+	coclass ChatServer
+	{
+		[default] dispinterface IChatServer;
+	};
+};

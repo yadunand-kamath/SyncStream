@@ -1,0 +1,58 @@
+# Compiled Object Code
+*.obj
+*.o
+*.lib
+*.exp
+*.tlb
+*.tlh
+*.cachefile
+
+# Visual Studio Build Output
+Debug/
+Win32/
+bld/
+ipch/
+obj/
+
+# Visual Studio Solution Files
+*.sln
+*.suo
+*.vcxproj.user
+*.vcxproj.filters
+*.vcxproj.local
+
+# Other Visual Studio Files
+_ReSharper*/
+*.sdf
+*.ncb
+*.aps
+*.ilk
+*.pdb
+*.vspscc
+*.vssscc
+*.VC.db
+*.opencover*
+*.opencoveranalysis*
+packages/
+
+# Build results of all configurations
+[Bb]in/
+[Oo]bj/
+
+# Test Results
+TestResults/
+
+# Code Analysis Results
+*.pvs
+*.sarif
+
+# NuGet Packages
+packages/
+
+# Deployment files
+*.msi
+*.cab
+Setup/
+
+# Visual Studio 2015 and later cache files
+.vs/

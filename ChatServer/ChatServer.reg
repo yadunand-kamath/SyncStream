@@ -1,0 +1,17 @@
+REGEDIT
+; This .REG file may be used by your SETUP program.
+;   If a SETUP program is not available, the entries below will be
+;   registered in your InitInstance automatically with a call to
+;   CWinApp::RegisterShellFileTypes and COleObjectFactory::UpdateRegistryAll.
+
+
+HKEY_CLASSES_ROOT\ChatServer.Application = ChatServer Application
+
+
+HKEY_CLASSES_ROOT\ChatServer.Application\CLSID = {5aa4068a-398f-4d49-be44-10673e7c0b72}
+
+HKEY_CLASSES_ROOT\CLSID\{5aa4068a-398f-4d49-be44-10673e7c0b72} = ChatServer Application
+HKEY_CLASSES_ROOT\CLSID\{5aa4068a-398f-4d49-be44-10673e7c0b72}\ProgId = ChatServer.Application
+
+
+HKEY_CLASSES_ROOT\CLSID\{5aa4068a-398f-4d49-be44-10673e7c0b72}\LocalServer32 = ChatServer.EXE
