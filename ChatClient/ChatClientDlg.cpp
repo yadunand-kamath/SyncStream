@@ -109,6 +109,10 @@ BOOL CChatClientDlg::OnInitDialog()
 	SetIcon(m_hIcon, TRUE);		// Set small icon
 
 	// TODO: Add extra initialization here
+
+	CString windowTitle;
+	windowTitle.Format(_T("Chat Client - User: %s"), GetUsername());
+	SetWindowText(windowTitle);
 	
 	// Initialize Winsock
 	WSADATA wsaData;

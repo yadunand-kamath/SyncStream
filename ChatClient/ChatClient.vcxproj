@@ -211,7 +211,9 @@
     <None Include="res\ChatClient.rc2" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="C:\Users\yadu1\Downloads\chat.ico" />
     <Image Include="res\ChatClient.ico" />
+    <Image Include="res\icon1.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
