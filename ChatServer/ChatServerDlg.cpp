@@ -2,6 +2,14 @@
 // ChatServerDlg.cpp : implementation file
 //
 
+//-----------------------------------------------------------------------------
+// File:        ChatServerDlg.cpp
+// Author:      Yadunand Kamath
+// Date:        2025-03-22
+// Description: Implementation file for the CChatServerDlg class, which handles
+//              the main dialog of the chat server application.
+//-----------------------------------------------------------------------------
+
 #include "pch.h"
 #include "framework.h"
 #include "ChatServer.h"
@@ -13,11 +21,12 @@
 #include <WS2tcpip.h>
 #include <ctime>
 
+#pragma comment(lib, "Ws2_32.lib")
+
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
-#pragma comment(lib, "Ws2_32.lib")
 
 // CAboutDlg dialog used for App About
 
@@ -60,9 +69,12 @@ IMPLEMENT_DYNAMIC(CChatServerDlg, CDialogEx);
 CChatServerDlg::CChatServerDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_CHATSERVER_DIALOG, pParent)
 {
+	// Initialize the member variables in the constructor
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_pAutoProxy = nullptr;
 	m_listenSocket = INVALID_SOCKET;
+	m_clientSockets.RemoveAll();
+	m_connectedClients.clear();
 }
 
 CChatServerDlg::~CChatServerDlg()
@@ -77,6 +89,7 @@ CChatServerDlg::~CChatServerDlg()
 void CChatServerDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_Control(pDX, IDC_LIST_CLIENTS, m_clientList);
 }
 
 BEGIN_MESSAGE_MAP(CChatServerDlg, CDialogEx)
@@ -87,13 +100,18 @@ BEGIN_MESSAGE_MAP(CChatServerDlg, CDialogEx)
 END_MESSAGE_MAP()
 
 
-// CChatServerDlg message handlers
+//-----------------------------------------------------------------------------
+// Method:      OnInitDialog
+// Description: This method is called when the dialog is being initialized.
+//              It performs setup tasks such as initializing controls,
+//              setting the window title, and starting the server.
+// Parameters:  None
+// Returns:     BOOL - TRUE unless you set the focus to a control.
+//-----------------------------------------------------------------------------
 
 BOOL CChatServerDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
-
-	// Add "About..." menu item to system menu.
 
 	// IDM_ABOUTBOX must be in the system command range.
 	ASSERT((IDM_ABOUTBOX & 0xFFF0) == IDM_ABOUTBOX);
@@ -119,6 +137,27 @@ BOOL CChatServerDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// Set small icon
 
 	// TODO: Add extra initialization here
+
+	// Set the font for the static texts
+	CFont font1, font2;
+	font1.CreateFont(
+		15,                        // nHeight
+		0,                         // nWidth
+		0,                         // nEscapement
+		0,                         // nOrientation
+		FW_BOLD,                 // nWeight
+		FALSE,                     // bItalic
+		FALSE,                     // bUnderline
+		0,                         // cStrikeOut
+		ANSI_CHARSET,              // nCharSet
+		OUT_DEFAULT_PRECIS,        // nOutPrecision
+		CLIP_DEFAULT_PRECIS,       // nClipPrecision
+		DEFAULT_QUALITY,           // nQuality
+		DEFAULT_PITCH | FF_SWISS,  // nPitchAndFamily
+		_T("Tahoma"));                 // lpszFacename
+
+	GetDlgItem(IDC_STATIC_SERVER)->SetFont(&font1);
+
 
 	// Initializing Winsock
 	WSADATA wsaData;
@@ -146,8 +185,8 @@ BOOL CChatServerDlg::OnInitDialog()
 	if (bind(listenSocket, (sockaddr*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR)
 	{
 		CString errorMessage;
-		errorMessage.Format(_T("Server: Error binding socket. Error code: %d"), WSAGetLastError());
-		AfxMessageBox(errorMessage);
+		errorMessage.Format(_T("SERVER: Error binding socket.\n Error code: %d"), WSAGetLastError());
+		MessageBox(errorMessage, L"Error", MB_OK | MB_ICONERROR);
 		closesocket(listenSocket);
 		WSACleanup();
 		return FALSE;
@@ -157,7 +196,7 @@ BOOL CChatServerDlg::OnInitDialog()
 	if (listen(listenSocket, SOMAXCONN) == SOCKET_ERROR)
 	{
 		CString errorMessage;
-		errorMessage.Format(_T("Server: Error listening on socket. Error code: %d"), WSAGetLastError());
+		errorMessage.Format(_T("SERVER: Error listening on socket.\n Error code: %d"), WSAGetLastError());
 		MessageBox(errorMessage, L"Error", MB_OK | MB_ICONERROR);
 		closesocket(listenSocket);
 		WSACleanup();
@@ -219,16 +258,20 @@ HCURSOR CChatServerDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+
+//-----------------------------------------------------------------------------
+// Methods:     OnClose, OnCancel
+// Description: Sets behavior when dialog is closed, 
+//				Cancel button is clicked,
+//				respectively.
+// Parameters:  None
+// Returns:     void
+//-----------------------------------------------------------------------------
+
 void CChatServerDlg::OnClose()
 {
 	if (CanExit())
 		CDialogEx::OnClose();
-}
-
-void CChatServerDlg::OnOK()
-{
-	if (CanExit())
-		CDialogEx::OnOK();
 }
 
 void CChatServerDlg::OnCancel()
@@ -237,35 +280,53 @@ void CChatServerDlg::OnCancel()
 		CDialogEx::OnCancel();
 }
 
+//-----------------------------------------------------------------------------
+// Method:      AcceptClientConnectionThreadProc
+// Description: This static method is run in a separate thread to accept
+//              incoming client connections. It receives the client's username
+//              and starts a new thread to handle communication with the client.
+// Parameters:  LPVOID pParam - A pointer to the CChatServerDlg instance.
+// Returns:     UINT - 0 (thread's exit code)
+//-----------------------------------------------------------------------------
+
 UINT CChatServerDlg::AcceptClientConnectionThreadProc(LPVOID pParam)
 {
 	CChatServerDlg* pThis = static_cast<CChatServerDlg*>(pParam);
+	if (pThis == nullptr)
+	{
+		TRACE(_T("Error: Could not get pointer to main dialog.\n"));
+		return 0;
+	}
+	// Decalre variables to store new client information
 	SOCKET clientSocket;
 	sockaddr_in clientAddress;
 	int clientAddressSize = sizeof(clientAddress);
 	char usernameBuffer[256];
 	int usernameReceivedBytes;
 
+	// Check for incoming connections continously until the server is shut down
 	while (true)
 	{
+		// Accept a new client connection
 		clientSocket = accept(pThis->m_listenSocket, (sockaddr*)&clientAddress, &clientAddressSize);
 		if (clientSocket == INVALID_SOCKET)
 		{
 			TRACE(_T("Error accepting connection: %d\n"), WSAGetLastError());
 			Sleep(1000);
-			continue;
-			//break;
+			continue;	// Continue to accept new connections
 		}
 		
 		TRACE(_T("Client connected.\n"));
 
+		// Receive the username of the client
 		usernameReceivedBytes = recv(clientSocket, usernameBuffer, sizeof(usernameBuffer) - 1, 0);
 		if (usernameReceivedBytes > 0)
 		{
-			usernameBuffer[usernameReceivedBytes] = '\0';
+			usernameBuffer[usernameReceivedBytes] = '\0';	// Terminate the string
 			CString username(usernameBuffer);
 			TRACE(_T("Received username: %s\n"), username);
-			pThis->m_connectedClients[clientSocket] = username;
+			pThis->m_connectedClients[clientSocket] = username;		// Add the client to the list of connected clients
+			pThis->m_clientList.AddString(username);	// Add the client to the list box
 		}
 		else
 		{
@@ -283,9 +344,20 @@ UINT CChatServerDlg::AcceptClientConnectionThreadProc(LPVOID pParam)
 	return 0;
 }
 
+//-----------------------------------------------------------------------------
+// Method:      HandleClientThreadProc
+// Description: This static method is run in a separate thread to handle
+//              communication with each client. It receives messages from the
+//              client and broadcasts them to all other connected clients.
+// Parameters:  LPVOID pParam - Socket of the client to handle.
+// Returns:     UINT - 0 (thread's exit code)
+//-----------------------------------------------------------------------------
+
 UINT CChatServerDlg::HandleClientThreadProc(LPVOID pParam)
 {
 	SOCKET clientSocket = (SOCKET)pParam;
+
+	// Declare variables to store received message
 	char buffer[4096];
 	int bytesReceived;
 
@@ -298,6 +370,7 @@ UINT CChatServerDlg::HandleClientThreadProc(LPVOID pParam)
 		return 0;
 	}
 
+	// Receive messages from the client continously until the client disconnects
 	while ((bytesReceived = recv(clientSocket, buffer, sizeof(buffer) - 1, 0)) > 0)
 	{
 		buffer[bytesReceived] = '\0';
@@ -305,6 +378,7 @@ UINT CChatServerDlg::HandleClientThreadProc(LPVOID pParam)
 		CString message(buffer);
 		TRACE(_T("Received from client: %s\n"), message);
 
+		// Add timestamp to the message
 		std::time_t now = std::time(nullptr);
 		std::tm currentTime;
 		localtime_s(&currentTime, &now);
@@ -321,10 +395,10 @@ UINT CChatServerDlg::HandleClientThreadProc(LPVOID pParam)
 		}
 		else
 		{
-			senderUsername = _T("Unknown"); // Handle case where username is not found
+			senderUsername = _T("Unknown"); // if username is not found
 		}
 
-		// Format the message with the username
+		// Format the message with the username and timestamp
 		CString formattedMessage;
 		formattedMessage.Format(_T("[%s] [%s] : %s"), timeStamp, senderUsername, message);
 
@@ -334,13 +408,13 @@ UINT CChatServerDlg::HandleClientThreadProc(LPVOID pParam)
 
 		// Iterate through the list of connected clients and send the message to each one
 		POSITION pos = pDlg->m_clientSockets.GetHeadPosition();
-		while (pos != NULL)
+		while (pos != nullptr)
 		{
 			SOCKET otherClientSocket = pDlg->m_clientSockets.GetNext(pos);
 			if (otherClientSocket != INVALID_SOCKET /*&& otherClientSocket != clientSocket*/)
 			{
 				TRACE(_T("Server is sending to socket %d: %s (length: %d)\n"), otherClientSocket, formattedMessage, formattedMessageLength);
-				send(otherClientSocket, asciiFormattedMessage, formattedMessageLength, 0);
+				send(otherClientSocket, asciiFormattedMessage, formattedMessageLength, 0);	// send the message to the client
 			}
 		}
 	}
@@ -357,7 +431,9 @@ UINT CChatServerDlg::HandleClientThreadProc(LPVOID pParam)
 
 	// Remove the client socket from the list
 	POSITION pos = pDlg->m_clientSockets.Find(clientSocket);
-	if (pos != NULL)
+	// Remove the client from the list box and the list of connected clients
+	pDlg->m_clientList.DeleteString(pDlg->m_clientList.FindString(-1, pDlg->m_connectedClients[clientSocket]));  
+	if (pos != nullptr)
 	{
 		pDlg->m_clientSockets.RemoveAt(pos);
 		pDlg->m_connectedClients.erase(clientSocket);

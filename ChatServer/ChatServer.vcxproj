@@ -225,7 +225,7 @@
     <ResourceCompile Include="ChatServer.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="res\ChatServer.ico" />
+    <Image Include="C:\Users\yadu1\Downloads\chat.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

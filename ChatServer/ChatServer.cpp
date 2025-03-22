@@ -154,6 +154,6 @@ BOOL CChatServerApp::InitInstance()
 int CChatServerApp::ExitInstance()
 {
 	AfxOleTerm(FALSE);
-
+	WSACleanup();
 	return CWinApp::ExitInstance();
 }

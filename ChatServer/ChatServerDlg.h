@@ -42,16 +42,16 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	afx_msg void OnClose();
-	virtual void OnOK();
 	virtual void OnCancel();
 	DECLARE_MESSAGE_MAP()
 
 	static UINT AcceptClientConnectionThreadProc(LPVOID pParam);
 	static UINT HandleClientThreadProc(LPVOID pParam);
+
 	SOCKET m_listenSocket;
 	CList<SOCKET, SOCKET&> m_clientSockets;
+	CListBox m_clientList;
 
 private:
 	std::map<SOCKET, CString> m_connectedClients;
-
 };
