@@ -29,8 +29,14 @@ void CConnectDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_IPAddress(pDX, IDC_IPADDRESS, m_serverIP);
 }
 
+void CConnectDlg::OnCancel()
+{
+	CDialogEx::OnCancel();
+}
+
 
 BEGIN_MESSAGE_MAP(CConnectDlg, CDialogEx)
+	ON_COMMAND(IDCANCEL, &CConnectDlg::OnCancel)
 END_MESSAGE_MAP()
 
 

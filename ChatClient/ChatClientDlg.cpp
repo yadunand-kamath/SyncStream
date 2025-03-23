@@ -2,6 +2,14 @@
 // ChatClientDlg.cpp : implementation file
 //
 
+//-----------------------------------------------------------------------------
+// File:        ChatClientDlg.cpp
+// Author:      Yadunand Kamath
+// Date:        2025-03-22
+// Description: Implementation file for the CChatClientDlg class, which handles
+//              the main dialog of the chat client application.
+//-----------------------------------------------------------------------------
+
 #include "pch.h"
 #include "framework.h"
 #include "ChatClient.h"
@@ -58,6 +66,7 @@ END_MESSAGE_MAP()
 CChatClientDlg::CChatClientDlg(CWnd* pParent /*=nullptr*/)
 	: CDialogEx(IDD_CHATCLIENT_DIALOG, pParent)
 {
+	// Initialize the member variables
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_clientSocket = INVALID_SOCKET;
 }
@@ -78,6 +87,15 @@ END_MESSAGE_MAP()
 
 
 // CChatClientDlg message handlers
+
+//-----------------------------------------------------------------------------
+// Method:      OnInitDialog
+// Description: This method is called when the dialog is being initialized.
+//              It performs setup tasks such as initializing controls,
+//              setting the window title, and connecting to the server.
+// Parameters:  None
+// Returns:     BOOL - TRUE unless you set the focus to a control.
+//-----------------------------------------------------------------------------
 
 BOOL CChatClientDlg::OnInitDialog()
 {
@@ -110,8 +128,9 @@ BOOL CChatClientDlg::OnInitDialog()
 
 	// TODO: Add extra initialization here
 
+	// Set the window title
 	CString windowTitle;
-	windowTitle.Format(_T("Chat Client - User: %s"), GetUsername());
+	windowTitle.Format(_T("SyncStream Client - User: %s"), GetUsername());
 	SetWindowText(windowTitle);
 	
 	// Initialize Winsock
@@ -133,7 +152,7 @@ BOOL CChatClientDlg::OnInitDialog()
 		return FALSE;
 	}
 
-	// Connect to the server
+	// Convert IP address string to binary
 	sockaddr_in serverAddress;
 	serverAddress.sin_family = AF_INET;
 	serverAddress.sin_port = htons(8888);
@@ -146,12 +165,16 @@ BOOL CChatClientDlg::OnInitDialog()
 		return FALSE;
 	}
 
+	// Show connecting dialog if connection is delayed
 	CConnectingDlg connectingDlg;
 	connectingDlg.Create(IDD_DIALOG_CONNECTING, this); // Create the dialog
+	TRACE(_T("IP: "), m_serverAddr);
+	windowTitle.Format(_T("Connecting to SERVER at IP: %s"), m_serverAddr);
+	connectingDlg.m_staticConnecting.SetWindowText(windowTitle); // Set the text
 	connectingDlg.ShowWindow(SW_SHOW); // Show it
 	TRACE(_T("Attempting connect() to IP: %s\n"), m_serverAddr);
 
-
+	// Connect to the server
 	if (connect(m_clientSocket, (SOCKADDR*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) {
 		connectingDlg.EndDialog(IDCANCEL); // Close loading dialog
 		TRACE(_T("connect() returned SOCKET_ERROR.\n"));
@@ -168,14 +191,16 @@ BOOL CChatClientDlg::OnInitDialog()
 		connectingDlg.EndDialog(IDCANCEL); // Close loading dialog
 	}
 
-	MessageBox(_T("CLIENT: Connected to server!"), L"Success", MB_ICONINFORMATION); // Optional: Confirmation message
+	MessageBox(_T("CLIENT: Connected to server!"), L"Success", MB_ICONINFORMATION); // Confirmation message
 
+	// Send the username to the server
 	if (!GetUsername().IsEmpty())
 	{
 		CT2A asciiUsername(m_username);
 		send(m_clientSocket, asciiUsername, strlen(asciiUsername), 0);
 	}
 
+	// Launch a thread to receive messages from the server
 	AfxBeginThread(ReceiveMessagesThreadProc, this);
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
@@ -230,6 +255,8 @@ HCURSOR CChatClientDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+// Getters and Setters
+
 CString CChatClientDlg::GetUsername()
 {
 		return m_username;
@@ -250,11 +277,21 @@ void CChatClientDlg::SetServerAddr(CString serverAddr)
 	m_serverAddr = serverAddr;
 }
 
+//-----------------------------------------------------------------------------
+// Method:      OnBnClickedButtonSend
+// Description: This method is called when the send button is clicked.
+//              It sends the message in the message box to the server.
+// Parameters:  None
+// Returns:     void
+//-----------------------------------------------------------------------------
+
 void CChatClientDlg::OnBnClickedButtonSend()
 {
+	// Capture the message from the message box
 	CString messageToSend;
 	GetDlgItemText(IDC_EDIT_MESSAGE, messageToSend);
 
+	// Send the message to the server
 	if (!messageToSend.IsEmpty())
 	{
 		CT2A asciiMsg(messageToSend);
@@ -270,13 +307,24 @@ void CChatClientDlg::OnBnClickedButtonSend()
 	}
 }
 
+//-----------------------------------------------------------------------------
+// Method:      ReceiveMessagesThreadProc
+// Description: This static method is the entry point for the thread that
+//              receives messages from the server. It runs in an infinite loop
+//              and receives messages from the server until the connection is
+//              closed or an error occurs.
+// Parameters:  LPVOID pParam - A pointer to the CChatClientDlg object.
+// Returns:     UINT - 0 (thread's exit code)
+//-----------------------------------------------------------------------------
+
 UINT CChatClientDlg::ReceiveMessagesThreadProc(LPVOID pParam)
 {
-	TRACE(_T("ReceiveMessagesThreadProc is running.\n"));
 	CChatClientDlg* pDlg = static_cast<CChatClientDlg*>(pParam);
+	// Create a buffer to receive messages
 	char buffer[4096];
 	int bytesReceived;
 
+	// Receive messages from the server
 	while ((bytesReceived = recv(pDlg->m_clientSocket, buffer, sizeof(buffer), 0)) > 0) {
 		buffer[bytesReceived] = '\0';
 		CString receivedMessage(buffer);
@@ -284,13 +332,14 @@ UINT CChatClientDlg::ReceiveMessagesThreadProc(LPVOID pParam)
 
 		CString formattedMessage;
 		formattedMessage.Format(_T("[%s]: %s"), pDlg->m_username, receivedMessage);
+		// Post a message to the main thread to update the list box
 		BOOL bResult = pDlg->PostMessage(CChatClientDlg::WM_ADD_MESSAGE, 0, (LPARAM)new CString(receivedMessage));
 		TRACE(_T("PostMessage result: %d\n"), bResult);
 	}
 
 	if (bytesReceived == 0) {
 		TRACE(_T("SERVER Disconnected.\n"));
-		// Handle server disconnection (e.g., display a message, disable sending)
+		AfxMessageBox(_T("SERVER Disconnected."), MB_OK | MB_ICONERROR);
 	}
 	else if (bytesReceived == SOCKET_ERROR) {
 		TRACE(_T("Receive failed with error: %d\n"), WSAGetLastError());
@@ -300,6 +349,15 @@ UINT CChatClientDlg::ReceiveMessagesThreadProc(LPVOID pParam)
 	return 0;
 }
 
+//-----------------------------------------------------------------------------
+// Method:      OnAddMessage
+// Description: This method is called when a message is received from 
+//				the server. It adds the message to the list box.
+// Parameters:  WPARAM wParam - The WPARAM parameter of the message.
+//              LPARAM lParam - The LPARAM parameter of the message.
+// Returns:     LRESULT - The result of the message processing.
+//-----------------------------------------------------------------------------
+
 LRESULT CChatClientDlg::OnAddMessage(WPARAM wParam, LPARAM lParam)
 {
 	CString* pMessage = reinterpret_cast<CString*>(lParam);
@@ -307,10 +365,7 @@ LRESULT CChatClientDlg::OnAddMessage(WPARAM wParam, LPARAM lParam)
 	{
 		CListBox* pListBox = static_cast<CListBox*>(GetDlgItem(IDC_LIST_MESSAGES));
 		if (pListBox != nullptr)
-		{
-			//TRACE(_T("Adding message to List Box: %s\n"), *pMessage);
-			pListBox->AddString(*pMessage);
-		}
+			pListBox->AddString(*pMessage);	// Add the message to the list box
 		delete pMessage; // Clean up the allocated CString
 	}
 	return LRESULT();

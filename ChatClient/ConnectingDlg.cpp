@@ -25,6 +25,7 @@ CConnectingDlg::~CConnectingDlg()
 void CConnectingDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_Control(pDX, IDC_STATIC_CONNECTING, m_staticConnecting);
 }
 
 BOOL CConnectingDlg::OnInitDialog()
@@ -34,12 +35,6 @@ BOOL CConnectingDlg::OnInitDialog()
 	CenterWindow();
 
 	return TRUE;
-}
-
-void CConnectingDlg::OnCancel()
-{
-	m_bCancelled = true;
-	CDialogEx::OnCancel();
 }
 
 
