@@ -432,8 +432,7 @@ UINT CChatServerDlg::HandleClientThreadProc(LPVOID pParam)
 	if (bytesReceived == 0 || bytesReceived == SOCKET_ERROR)
 	{
 		TRACE(_T("Client disconnected.\n"));
-		closesocket(clientSocket);
-
+		
 		// Send an alert message when a client leaves
 		CString leavingUsername = pDlg->m_connectedClients[clientSocket];
 		CString leaveMessage;
@@ -449,6 +448,8 @@ UINT CChatServerDlg::HandleClientThreadProc(LPVOID pParam)
 				send(clientSocket, asciiLeaveMessage, strlen(asciiLeaveMessage), 0);
 			}
 		}
+
+		closesocket(clientSocket);
 
 		pos = pDlg->m_clientSockets.Find(clientSocket);
 		// Remove the client from the list box and the list of connected clients
