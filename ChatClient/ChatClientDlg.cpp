@@ -156,7 +156,7 @@ BOOL CChatClientDlg::OnInitDialog()
 	sockaddr_in serverAddress;
 	serverAddress.sin_family = AF_INET;
 	serverAddress.sin_port = htons(8888);
-	CT2A asciiServerAddr(m_serverAddr);
+	CT2A asciiServerAddr(GetServerAddr());
 	if (inet_pton(AF_INET, asciiServerAddr, &serverAddress.sin_addr) <= 0) {
 		MessageBox(L"CLIENT: Invalid server IP address", L"Warning", MB_OK | MB_ICONWARNING);
 		closesocket(m_clientSocket);
@@ -168,11 +168,11 @@ BOOL CChatClientDlg::OnInitDialog()
 	// Show connecting dialog if connection is delayed
 	CConnectingDlg connectingDlg;
 	connectingDlg.Create(IDD_DIALOG_CONNECTING, this); // Create the dialog
-	TRACE(_T("IP: "), m_serverAddr);
-	windowTitle.Format(_T("Connecting to SERVER at IP: %s"), m_serverAddr);
+	TRACE(_T("IP: "), GetServerAddr());
+	windowTitle.Format(_T("Connecting to SERVER at IP: %s"), GetServerAddr());
 	connectingDlg.m_staticConnecting.SetWindowText(windowTitle); // Set the text
 	connectingDlg.ShowWindow(SW_SHOW); // Show it
-	TRACE(_T("Attempting connect() to IP: %s\n"), m_serverAddr);
+	TRACE(_T("Attempting connect() to IP: %s\n"), GetServerAddr());
 
 	// Connect to the server
 	if (connect(m_clientSocket, (SOCKADDR*)&serverAddress, sizeof(serverAddress)) == SOCKET_ERROR) {
@@ -196,7 +196,7 @@ BOOL CChatClientDlg::OnInitDialog()
 	// Send the username to the server
 	if (!GetUsername().IsEmpty())
 	{
-		CT2A asciiUsername(m_username);
+		CT2A asciiUsername(GetUsername());
 		send(m_clientSocket, asciiUsername, strlen(asciiUsername), 0);
 	}
 
@@ -330,11 +330,19 @@ UINT CChatClientDlg::ReceiveMessagesThreadProc(LPVOID pParam)
 		CString receivedMessage(buffer);
 		TRACE(_T("CLIENT Received: %s\n"), receivedMessage);
 
-		CString formattedMessage;
-		formattedMessage.Format(_T("[%s]: %s"), pDlg->m_username, receivedMessage);
-		// Post a message to the main thread to update the list box
-		BOOL bResult = pDlg->PostMessage(CChatClientDlg::WM_ADD_MESSAGE, 0, (LPARAM)new CString(receivedMessage));
-		TRACE(_T("PostMessage result: %d\n"), bResult);
+		if (receivedMessage.Left(5) == _T("ALERT"))
+		{
+			BOOL bResult = pDlg->PostMessage(CChatClientDlg::WM_ADD_MESSAGE, 0, (LPARAM)new CString(receivedMessage));
+			TRACE(_T("PostMessage1 result: %d\n"), bResult);
+		}
+		else
+		{
+			CString formattedMessage;
+			formattedMessage.Format(_T("[%s]: %s"), pDlg->GetUsername(), receivedMessage);
+			// Post a message to the main thread to update the list box
+			BOOL bResult = pDlg->PostMessage(CChatClientDlg::WM_ADD_MESSAGE, 0, (LPARAM)new CString(receivedMessage));
+			TRACE(_T("PostMessage2 result: %d\n"), bResult);
+		}
 	}
 
 	if (bytesReceived == 0) {

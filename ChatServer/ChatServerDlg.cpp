@@ -327,8 +327,9 @@ UINT CChatServerDlg::AcceptClientConnectionThreadProc(LPVOID pParam)
 			pThis->m_connectedClients[clientSocket] = username;		// Add the client to the list of connected clients
 			pThis->m_clientList.AddString(username);	// Add the client to the list box
 
+			// Send alet message when a new client joins
 			CString joinMessage;
-			joinMessage.Format(_T("%s has joined the chat!"), username);
+			joinMessage.Format(_T("ALERT: %s has joined the chat!"), username);
 			CT2A asciiJoinMessage(joinMessage);
 			POSITION pos = pThis->m_clientSockets.GetHeadPosition();
 			while (pos != nullptr)
@@ -403,13 +404,9 @@ UINT CChatServerDlg::HandleClientThreadProc(LPVOID pParam)
 		CString senderUsername;
 		auto it = pDlg->m_connectedClients.find(clientSocket);
 		if (it != pDlg->m_connectedClients.end())
-		{
 			senderUsername = it->second;
-		}
 		else
-		{
 			senderUsername = _T("Unknown"); // if username is not found
-		}
 
 		// Format the message with the username and timestamp
 		CString formattedMessage;
@@ -432,37 +429,17 @@ UINT CChatServerDlg::HandleClientThreadProc(LPVOID pParam)
 		}
 	}
 
-	//if (bytesReceived == 0) {
-	//	TRACE(_T("Client disconnected.\n"));
-	//}
-	//else if (bytesReceived == SOCKET_ERROR) {
-	//	TRACE(_T("Receive failed with error: %d\n"), WSAGetLastError()); // Added TRACE
-	//}
-
-	//TRACE(_T("Client disconnected.\n"));
-	//closesocket(clientSocket);
-
-	//
-	//POSITION pos = pDlg->m_clientSockets.Find(clientSocket);
-	//
-	//pDlg->m_clientList.DeleteString(pDlg->m_clientList.FindString(-1, pDlg->m_connectedClients[clientSocket]));  
-	//if (pos != nullptr)
-	//{
-	//	pDlg->m_clientSockets.RemoveAt(pos);
-	//	pDlg->m_connectedClients.erase(clientSocket);
-	//}
-
 	if (bytesReceived == 0 || bytesReceived == SOCKET_ERROR)
 	{
 		TRACE(_T("Client disconnected.\n"));
 		closesocket(clientSocket);
 
-		// Notify all other connected clients about the disconnected client
+		// Send an alert message when a client leaves
 		CString leavingUsername = pDlg->m_connectedClients[clientSocket];
 		CString leaveMessage;
-		leaveMessage.Format(_T("%s left the chat!"), leavingUsername);
+		leaveMessage.Format(_T("ALERT: %s left the chat!"), leavingUsername);
 		CT2A asciiLeaveMessage(leaveMessage);
-
+		// Broadcast the leave message to all other connected clients
 		POSITION pos = pDlg->m_clientSockets.GetHeadPosition();
 		while (pos != nullptr)
 		{
