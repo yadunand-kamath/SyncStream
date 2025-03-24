@@ -158,7 +158,6 @@ BOOL CChatServerDlg::OnInitDialog()
 
 	GetDlgItem(IDC_STATIC_SERVER)->SetFont(&font1);
 
-
 	// Initializing Winsock
 	WSADATA wsaData;
 	int iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -327,6 +326,20 @@ UINT CChatServerDlg::AcceptClientConnectionThreadProc(LPVOID pParam)
 			TRACE(_T("Received username: %s\n"), username);
 			pThis->m_connectedClients[clientSocket] = username;		// Add the client to the list of connected clients
 			pThis->m_clientList.AddString(username);	// Add the client to the list box
+
+			CString joinMessage;
+			joinMessage.Format(_T("%s has joined the chat!"), username);
+			CT2A asciiJoinMessage(joinMessage);
+			POSITION pos = pThis->m_clientSockets.GetHeadPosition();
+			while (pos != nullptr)
+			{
+				SOCKET otherClientSocket = pThis->m_clientSockets.GetNext(pos);
+				if (otherClientSocket != INVALID_SOCKET && otherClientSocket != clientSocket)
+				{
+					TRACE(_T("Server is sending to socket %d: %s (length: %d)\n"), otherClientSocket, joinMessage, strlen(asciiJoinMessage));
+					send(otherClientSocket, asciiJoinMessage, strlen(asciiJoinMessage), 0);	// send the message to the client
+				}
+			}
 		}
 		else
 		{
@@ -419,24 +432,56 @@ UINT CChatServerDlg::HandleClientThreadProc(LPVOID pParam)
 		}
 	}
 
-	if (bytesReceived == 0) {
-		TRACE(_T("Client disconnected.\n"));
-	}
-	else if (bytesReceived == SOCKET_ERROR) {
-		TRACE(_T("Receive failed with error: %d\n"), WSAGetLastError()); // Added TRACE
-	}
+	//if (bytesReceived == 0) {
+	//	TRACE(_T("Client disconnected.\n"));
+	//}
+	//else if (bytesReceived == SOCKET_ERROR) {
+	//	TRACE(_T("Receive failed with error: %d\n"), WSAGetLastError()); // Added TRACE
+	//}
 
-	TRACE(_T("Client disconnected.\n"));
-	closesocket(clientSocket);
+	//TRACE(_T("Client disconnected.\n"));
+	//closesocket(clientSocket);
 
-	// Remove the client socket from the list
-	POSITION pos = pDlg->m_clientSockets.Find(clientSocket);
-	// Remove the client from the list box and the list of connected clients
-	pDlg->m_clientList.DeleteString(pDlg->m_clientList.FindString(-1, pDlg->m_connectedClients[clientSocket]));  
-	if (pos != nullptr)
+	//
+	//POSITION pos = pDlg->m_clientSockets.Find(clientSocket);
+	//
+	//pDlg->m_clientList.DeleteString(pDlg->m_clientList.FindString(-1, pDlg->m_connectedClients[clientSocket]));  
+	//if (pos != nullptr)
+	//{
+	//	pDlg->m_clientSockets.RemoveAt(pos);
+	//	pDlg->m_connectedClients.erase(clientSocket);
+	//}
+
+	if (bytesReceived == 0 || bytesReceived == SOCKET_ERROR)
 	{
-		pDlg->m_clientSockets.RemoveAt(pos);
-		pDlg->m_connectedClients.erase(clientSocket);
+		TRACE(_T("Client disconnected.\n"));
+		closesocket(clientSocket);
+
+		// Notify all other connected clients about the disconnected client
+		CString leavingUsername = pDlg->m_connectedClients[clientSocket];
+		CString leaveMessage;
+		leaveMessage.Format(_T("%s left the chat!"), leavingUsername);
+		CT2A asciiLeaveMessage(leaveMessage);
+
+		POSITION pos = pDlg->m_clientSockets.GetHeadPosition();
+		while (pos != nullptr)
+		{
+			SOCKET otherClientSocket = pDlg->m_clientSockets.GetNext(pos);
+			if (otherClientSocket != INVALID_SOCKET && otherClientSocket != clientSocket)
+			{
+				send(clientSocket, asciiLeaveMessage, strlen(asciiLeaveMessage), 0);
+			}
+		}
+
+		pos = pDlg->m_clientSockets.Find(clientSocket);
+		// Remove the client from the list box and the list of connected clients
+		pDlg->m_clientList.DeleteString(pDlg->m_clientList.FindString(-1, pDlg->m_connectedClients[clientSocket]));
+		if (pos != nullptr)
+		{
+			// Remove the client socket from the list
+			pDlg->m_clientSockets.RemoveAt(pos);
+			pDlg->m_connectedClients.erase(clientSocket);
+		}
 	}
 
 	return 0; // Thread finished
