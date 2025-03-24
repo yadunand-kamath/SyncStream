@@ -8,9 +8,10 @@ SyncStream is a real-time, multi-user chat application built for Windows. It all
 
 ### Client:
 
-![SyncStream Client - Demo](https://github.com/user-attachments/assets/452cb8bf-d2a5-491b-8280-9fa36f415708)
+https://github.com/user-attachments/assets/3a0f6ce2-82de-49b3-8135-05eaeb52c008
 
 ### Server:
+
 ![SyncStream Server- Demo](https://github.com/user-attachments/assets/4a6a947b-fc35-4664-88df-9f9cb4dee436)
 
 ## Technologies Used
